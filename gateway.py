@@ -51,6 +51,9 @@ EVEROS_API_KEY = os.environ.get("EVEROS_API_KEY")
 # never let this flip on by accident in front of a real EverOS.
 MOCK = os.environ.get("SCALEKIT_MOCK") == "1"
 
+# EVEROS_PROJECT_ID is the folder when memory_project is missing.
+PROJECT_ID = os.environ.get("EVEROS_PROJECT_ID", "agent")
+
 app = FastAPI(title="everos-scalekit-gateway")
 
 if MOCK:
@@ -60,11 +63,11 @@ if MOCK:
     )
 
     def claims_for(token: str) -> Mapping[str, Any]:
-        """Decode a fake token of the form ``mock.<sub>.<oid>.<client_id>``."""
+        """Decode a fake token of the form ``mock.<sub>.<oid>.<project_id>``."""
         parts = token.split(".")
         if len(parts) != 4 or parts[0] != "mock":
             raise ValueError(f"not a mock token: {token!r}")
-        return {"sub": parts[1], "oid": parts[2], "client_id": parts[3]}
+        return {"sub": parts[1], "oid": parts[2], "memory_project": parts[3]}
 
 else:
     from scalekit.common.scalekit import TokenValidationOptions
@@ -87,18 +90,16 @@ else:
 
 
 def scope_from_claims(claims: Mapping[str, Any]) -> dict[str, str]:
-    """Scalekit's identity claims *are* EverOS's scope, verbatim.
-
-    Both id formats already satisfy EverOS's ScopeId charset
-    (``^[a-zA-Z0-9_.-]+$``, 1-128 chars), so no sanitisation is needed.
-    EverOS guarantees a query never crosses ``(app_id, project_id)``, so
-    mapping the Scalekit organization onto ``app_id`` buys tenant isolation
-    with no enforcement code.
+    """sub → user_id, oid → app_id. project_id from memory_project, else EVEROS_PROJECT_ID.
+    Do not use client_id — it is the Scalekit app and is the same for every user.
     """
+    project_id = (
+        claims["memory_project"] if "memory_project" in claims else PROJECT_ID
+    )
     return {
         "user_id": claims["sub"],  # usr_... — who is asking
         "app_id": claims["oid"],  # org_... — which tenant they belong to
-        "project_id": claims["client_id"],  # prd_skc_... — which application
+        "project_id": project_id,
     }
 
 
