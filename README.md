@@ -69,7 +69,9 @@ caller asked for:
 Do not map `client_id` → `project_id`. User tokens do include `client_id`, but it is the Scalekit application (`skc_…`) and is the same for every user. That is not an EverOS folder.
 
 Scalekit's id formats already satisfy EverOS's `ScopeId` charset (`^[a-zA-Z0-9_.-]+$`,
-1–128 chars), so nothing needs sanitising. And EverOS already guarantees that a
+1–128 chars), so nothing needs sanitising. `memory_project` is the one value you
+type yourself — keep it inside that charset: `support` works, `customer support`
+(space) would be rejected by EverOS. And EverOS already guarantees that a
 `/search` or `/get` never crosses an `(app_id, project_id)` pair — so mapping
 the Scalekit organization onto `app_id` buys tenant isolation without writing
 any enforcement.
